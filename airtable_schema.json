@@ -1,0 +1,91 @@
+{
+    "tables": [
+        {
+            "name": "ISS_Locations",
+            "fields": [
+                {
+                    "name": "Timestamp",
+                    "type": "dateTime",
+                    "options": {
+                        "format": "ISO"
+                    }
+                },
+                {
+                    "name": "Latitude",
+                    "type": "number",
+                    "options": {
+                        "precision": 6
+                    }
+                },
+                {
+                    "name": "Longitude",
+                    "type": "number",
+                    "options": {
+                        "precision": 6
+                    }
+                },
+                {
+                    "name": "Altitude",
+                    "type": "number",
+                    "options": {
+                        "precision": 2
+                    }
+                },
+                {
+                    "name": "Footprint_Radius",
+                    "type": "number",
+                    "options": {
+                        "precision": 2
+                    }
+                }
+            ]
+        },
+        {
+            "name": "My_Sightings",
+            "fields": [
+                {
+                    "name": "Timestamp",
+                    "type": "dateTime",
+                    "options": {
+                        "format": "ISO"
+                    }
+                },
+                {
+                    "name": "ISS_Latitude",
+                    "type": "number",
+                    "options": {
+                        "precision": 6
+                    }
+                },
+                {
+                    "name": "ISS_Longitude",
+                    "type": "number",
+                    "options": {
+                        "precision": 6
+                    }
+                },
+                {
+                    "name": "User_Latitude",
+                    "type": "number",
+                    "options": {
+                        "precision": 6
+                    }
+                },
+                {
+                    "name": "User_Longitude",
+                    "type": "number",
+                    "options": {
+                        "precision": 6
+                    }
+                },
+                {
+                    "name": "Distance",
+                    "type": "number",
+                    "options": {
+                        "precision": 2
+                    }
+                }
+            ]
+        }
+    ]
+} 

@@ -1,0 +1,309 @@
+# .cursorrules for RWM_ISSTRACKER Application
+
+## Project Overview
+- **Objective**: Build a real-time International Space Station (ISS) tracker web application that displays the ISS location and footprint on a map, stores data in Airtable, and sends notifications (SMS via Twilio to +19034363353) when the ISS is near the user’s location.
+- **Target**: Production-ready application following modern software engineering principles (modularity, clean code, test-driven development, CI/CD).
+- **Team**: Expert software engineers using TypeScript for type safety and Microsoft AutoGen for backend automation.
+
+## Tech Stack
+- **Backend**:
+  - Microsoft AutoGen AI agent framework (Python 3.13) for data ingestion, alerts, and fallback handling.
+  - Python libraries: `pyautogen`, `requests`, `airtable-python-wrapper`, `twilio`, `haversine` (installed in Python 3.13 environment).
+- **Database**:
+  - Airtable for storing ISS location data and user sighting events.
+  - Tables: `ISS_Locations` and `My_Sightings`.
+- **Frontend**:
+  - React with TypeScript for a fast, responsive UI.
+  - Local dependencies (from `package.json`): `axios`, `leaflet`, `tailwindcss`.
+  - CDN-hosted dependencies: React (18.2.0), ReactDOM (18.2.0).
+  - Tailwind CSS output: `frontend/public/output.css` (generated from `frontend/src/input.css`).
+- **Mapping**:
+  - OpenStreetMap via Leaflet (1.9.4, local import) for rendering ISS footprint.
+- **Notifications**:
+  - Twilio for SMS to +19034363353 (Verizon).
+  - Optional: SendGrid or Nodemailer for email.
+- **Testing**:
+  - Jest with `ts-jest` for unit tests (configured in `package.json`).
+  - Optional: Cypress for end-to-end tests.
+- **CI/CD**:
+  - GitHub Actions for automated testing (`npm test`) and deployment to Vercel.
+
+## File Structure
+```
+RWM_ISSTRACKER/
+├── backend/
+│   ├── agents/
+│   │   ├── ingestion_agent.py
+│   │   ├── alert_agent.py
+│   │   ├── fallback_agent.py
+│   ├── tests/
+│   │   ├── test_distance.py
+│   │   ├── test_api.py
+├── frontend/
+│   ├── src/
+│   │   ├── components/
+│   │   │   ├── Map.tsx
+│   │   │   ├── Sidebar.tsx
+│   │   │   ├── SettingsForm.tsx
+│   │   ├── types/
+│   │   │   ├── iss.types.ts
+│   │   ├── App.tsx
+│   │   ├── index.tsx
+│   │   ├── input.css
+│   ├── public/
+│   │   ├── index.html
+│   │   ├── output.css
+│   │   ├── iss-icon.png
+├── .github/
+│   ├── workflows/
+│   │   ├── ci.yml
+├── airtable_schema.json
+├── README.md
+├── .env
+├── .env.example
+├── package.json
+├── tsconfig.json
+├── jest.config.js
+```
+
+## Coding Guidelines
+- **Language**: Use TypeScript for all frontend code; Python 3.13 for backend.
+- **Modularity**:
+  - Organize frontend into reusable React components (`Map.tsx`, `Sidebar.tsx`, `SettingsForm.tsx`).
+  - Separate backend concerns: data fetching (`ingestion_agent.py`), alerts (`alert_agent.py`), and fallback (`fallback_agent.py`).
+- **Type Safety**:
+  - Define TypeScript interfaces in `frontend/src/types/iss.types.ts` for:
+    - API responses (e.g., `ISSPosition`, `ISSResponse`).
+    - Airtable records (`ISS_Locations`, `My_Sightings`).
+    - React component props.
+  - Example:
+    ```typescript
+    interface ISSPosition {
+      Timestamp: string;
+      Latitude: number;
+      Longitude: number;
+      Altitude: number;
+      Footprint_Radius: number;
+    }
+    ```
+- **Code Style**:
+  - Follow ESLint and Prettier defaults for TypeScript (use VS Code extensions if needed).
+  - Use meaningful variable names (e.g., `issPosition` instead of `data`).
+  - Write concise comments for complex logic (e.g., Haversine formula, AutoGen agent setup).
+- **Error Handling**:
+  - Implement retry logic for API calls (3 retries with exponential backoff).
+  - Fallback to cached Airtable data or Open Notify API on failure.
+  - Log errors to console and Airtable (optional).
+- **Testing**:
+  - Write unit tests for:
+    - Data fetching (API calls in `ingestion_agent.py`).
+    - Footprint calculation (if manual calculation is needed).
+    - Distance calculation (Haversine formula in `alert_agent.py`).
+    - Notification triggering logic.
+  - Use Jest with `ts-jest` for TypeScript tests (`frontend/src/__tests__`).
+  - Use `pytest` for Python tests (`backend/tests`).
+  - Example:
+    ```typescript
+    describe('Distance Calculation', () => {
+      it('should calculate distance between two points', () => {
+        const issPos = [33.7490, -84.3880];
+        const userPos = [34.0522, -84.0733];
+        const distance = calculateDistance(issPos, userPos);
+        expect(distance).toBeCloseTo(37.5, 1);
+      });
+    });
+    ```
+- **Documentation**:
+  - Include a `README.md` with:
+    - Setup instructions (e.g., `npm install`, `pip install`, `.env` configuration).
+    - API details (Where The ISS At?, Open Notify).
+    - Architecture overview (Mermaid diagram).
+    - Deployment steps (Vercel, GitHub Actions).
+
+## API and Data Handling
+- **Primary API**: Where The ISS At? (`https://api.wheretheiss.at/v1/satellites/25544`).
+  - Provides: latitude, longitude, altitude, timestamp, footprint radius (km).
+  - Sample response:
+    ```json
+    {
+      "latitude": 50.11496269845,
+      "longitude": 118.07900427317,
+      "altitude": 408.05526028199,
+      "footprint": 4446.1877699772,
+      "timestamp": 1364069476
+    }
+    ```
+- **Fallback API**: Open Notify (`http://api.open-notify.org/iss-now.json`).
+  - Provides: latitude, longitude, timestamp.
+  - Requires manual footprint calculation: `radius = altitude * tan(30°)`.
+- **Fetch Frequency**: Every 5 seconds.
+- **Error Handling**:
+  - Retry failed API calls up to 3 times with exponential backoff.
+  - Switch to Open Notify API or Airtable cache if primary API fails.
+- **Airtable Schema**:
+  - **ISS_Locations**:
+    - Fields: `Timestamp` (dateTime, ISO), `Latitude` (number, 6 decimals), `Longitude` (number, 6 decimals), `Altitude` (number, 2 decimals), `Footprint_Radius` (number, 2 decimals).
+  - **My_Sightings**:
+    - Fields: `Timestamp` (dateTime, ISO), `ISS_Latitude` (number, 6 decimals), `ISS_Longitude` (number, 6 decimals), `User_Latitude` (number, 6 decimals), `User_Longitude` (number, 6 decimals), `Distance` (number, 2 decimals).
+- **Security**:
+  - Store API keys (Airtable, Twilio, AutoGen) in `.env` file.
+  - Example `.env`:
+    ```
+    AIRTABLE_API_KEY=your_key
+    AIRTABLE_BASE_ID=your_base_id
+    TWILIO_SID=your_sid
+    TWILIO_TOKEN=your_token
+    TWILIO_FROM=+1234567890
+    AUTOGEN_API_KEY=your_openai_key
+    ```
+
+## Frontend Requirements
+- **Framework**: React with TypeScript, using Tailwind CSS (local, output at `frontend/public/output.css`).
+- **Components**:
+  - `Map.tsx`: Renders OpenStreetMap with ISS footprint and icon.
+  - `Sidebar.tsx`: Displays last 10 ISS positions from Airtable.
+  - `SettingsForm.tsx`: Form for user location (latitude, longitude) and radius (default: 50km).
+- **Mapping**:
+  - Use Leaflet (local import: `import L from 'leaflet'`) with OpenStreetMap tiles (`https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png`).
+  - Display ISS footprint as a green circle (opacity: 0.5, radius in meters) with a 2px black border.
+  - Place a 20x20px ISS icon at the center (e.g., `https://img.icons8.com/color/20/000000/satellite.png`).
+  - Ensure map is responsive for mobile devices.
+- **Data Fetching**:
+  - Fetch Airtable data every 5 seconds using `axios` (local import: `import axios from 'axios'`).
+  - Endpoint: `https://api.airtable.com/v0/{base_id}/ISS_Locations`.
+  - Query params: `maxRecords=10`, `sort=[{field: 'Timestamp', direction: 'desc'}]`.
+- **UI Features**:
+  - Map with zoom controls.
+  - Sidebar showing recent ISS positions (timestamp, lat, lon).
+  - Form to update user location and radius, styled with Tailwind CSS classes.
+- **Dependencies**:
+  - Local: `axios`, `leaflet`, `tailwindcss` (from `package.json`).
+  - CDN: React (`https://cdn.jsdelivr.net/npm/react@18.2.0`), ReactDOM (`https://cdn.jsdelivr.net/npm/react-dom@18.2.0`).
+
+## Backend Requirements
+- **Framework**: Microsoft AutoGen (Python 3.13) for AI-driven automation.
+- **Agents**:
+  - **Data Ingestion Agent** (`ingestion_agent.py`):
+    - Fetches ISS data from primary API every 5 seconds.
+    - Writes to `ISS_Locations` table in Airtable.
+    - Handles API errors with retries and fallback.
+  - **Alert Agent** (`alert_agent.py`):
+    - Reads latest ISS position from Airtable.
+    - Calculates distance to user location using Haversine formula (`haversine` package).
+    - Triggers notification if ISS footprint intersects user radius.
+    - Writes sighting to `My_Sightings` table.
+  - **Fallback Agent** (`fallback_agent.py`):
+    - Monitors primary API health.
+    - Switches to Open Notify API or Airtable cache on failure.
+- **Notifications**:
+  - SMS via Twilio to +19034363353.
+  - Optional: Email via SendGrid or Nodemailer.
+  - Throttle notifications: one per sighting event (e.g., when ISS enters user radius, with 5-minute cooldown).
+- **Distance Calculation**:
+  - Use Haversine formula: `haversine((iss_lat, iss_lon), (user_lat, user_lon), unit='km')`.
+  - Trigger alert if `distance <= user_radius + iss_footprint_radius`.
+- **Dependencies**:
+  - `pyautogen`: For agent framework.
+  - `requests`: For API calls.
+  - `airtable-python-wrapper`: For Airtable integration.
+  - `twilio`: For SMS notifications.
+  - `haversine`: For distance calculations.
+
+## CI/CD and Deployment
+- **GitHub Actions**:
+  - Workflow file: `.github/workflows/ci.yml`.
+  - Steps:
+    - Run tests (`npm test`) on push and pull requests.
+    - Deploy to Vercel on main branch push (`npx vercel --prod`).
+  - Store `VERCEL_TOKEN` in GitHub Secrets.
+- **Vercel**:
+  - Deploy frontend as a static site.
+  - Configure environment variables for Airtable and Twilio in Vercel dashboard.
+- **Testing**:
+  - Run Jest tests for frontend (`npm test`).
+  - Run `pytest` for backend tests (`pytest backend/tests`).
+
+## Additional Constraints
+- **Performance**:
+  - Ensure map rendering is lightweight (use Leaflet’s efficient rendering).
+  - Cache Airtable data locally to reduce API calls (e.g., store last 10 positions in React state).
+- **Rate Limits**:
+  - Handle API rate limits (e.g., Space-Track.org: 30 requests/minute, if used).
+  - Implement exponential backoff for retries.
+- **Notification Throttling**:
+  - Limit notifications to one per sighting event with a 5-minute cooldown.
+- **Security**:
+  - Never hardcode API keys or credentials.
+  - Use `.env` for sensitive data.
+  - Validate user inputs in `SettingsForm.tsx` to prevent injection attacks.
+
+## Implementation Notes
+- **Setup**:
+  - Initialize Airtable base with `airtable_schema.json`.
+  - Configure `.env` with API keys.
+  - Install dependencies: `npm install` for frontend, `pip install` for backend (already done).
+- **Development**:
+  - Start backend: `python backend/agents/ingestion_agent.py`.
+  - Start frontend: `npm start` (serves `frontend/public`).
+  - Watch Tailwind CSS: `npm run watch:css`.
+- **Testing**:
+  - Verify API data is written to Airtable.
+  - Check map updates every 5 seconds.
+  - Test notifications with a user location near ISS path.
+- **Deployment**:
+  - Push to GitHub, ensure CI/CD pipeline runs.
+  - Deploy to Vercel and verify frontend accessibility.
+
+## Example Artifacts
+- **AutoGen Agent** (`ingestion_agent.py`):
+  ```python
+  import requests
+  from airtable import Airtable
+  from datetime import datetime
+  def fetch_iss_data():
+      response = requests.get('https://api.wheretheiss.at/v1/satellites/25544')
+      data = response.json()
+      airtable = Airtable('BASE_ID', 'ISS_Locations', 'API_KEY')
+      airtable.insert({
+          'Timestamp': datetime.fromtimestamp(data['timestamp']).isoformat(),
+          'Latitude': data['latitude'],
+          'Longitude': data['longitude'],
+          'Altitude': data['altitude'],
+          'Footprint_Radius': data['footprint'] / 2
+      })
+  ```
+- **React Component** (`Map.tsx`):
+  ```typescript
+  import React, { useEffect } from 'react';
+  import L from 'leaflet';
+  interface ISSPosition {
+    Latitude: number;
+    Longitude: number;
+    Footprint_Radius: number;
+  }
+  const Map: React.FC<{ position: ISSPosition }> = ({ position }) => {
+    useEffect(() => {
+      const map = L.map('map').setView([position.Latitude, position.Longitude], 5);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+      L.circle([position.Latitude, position.Longitude], {
+        radius: position.Footprint_Radius * 1000,
+        color: 'black',
+        weight: 2,
+        fillColor: 'green',
+        fillOpacity: 0.5
+      }).addTo(map);
+      L.marker([position.Latitude, position.Longitude], {
+        icon: L.icon({ iconUrl: 'iss-icon.png', iconSize: [20, 20] })
+      }).addTo(map);
+      return () => { map.remove(); };
+    }, [position]);
+    return <div id="map" className="h-full w-full" />;
+  };
+  export default Map;
+  ```
+
+## References
+- Where The ISS At? API: `https://wheretheiss.at/w/developer`
+- Open Notify API: `http://open-notify.org/Open-Notify-API/ISS-Location-Now/`
+- Leaflet Documentation: `https://leafletjs.com/`
+- AutoGen Documentation: `https://microsoft.github.io/autogen/`
